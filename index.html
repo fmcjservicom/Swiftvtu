@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SwiftVTU — Buy Data, Airtime & Pay Bills</title>
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b0f1a;--card:#141a2b;--card2:#1b2236;--brand:#6d4bff;--brand2:#2bb0ff;
+  --txt:#e8ecf5;--mut:#8b93a7;--ok:#22c98a;--err:#ff5d6c;--warn:#ffb020;--line:#222b42;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--txt);overflow-x:hidden}
+a{color:var(--brand2);text-decoration:none}
+.hide{display:none!important}
+.grad{background:linear-gradient(135deg,var(--brand),var(--brand2))}
+.gradtxt{background:linear-gradient(135deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border:none;padding:14px 18px;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;width:100%;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:scale(.97)}
+.btn.sec{background:var(--card2);border:1px solid var(--line)}
+.btn.sm{width:auto;padding:9px 14px;font-size:13px;border-radius:10px}
+.btn.danger{background:linear-gradient(135deg,#ff5d6c,#ff8a5d)}
+.btn.ok{background:linear-gradient(135deg,#22c98a,#1fb6ff)}
+input,select,textarea{width:100%;padding:13px 14px;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);font-size:15px;outline:none;margin-top:6px}
+input:focus,select:focus{border-color:var(--brand)}
+label{font-size:13px;color:var(--mut);font-weight:500}
+.field{margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+.row{display:flex;gap:12px}.row>*{flex:1}
+.center{text-align:center}
+.muted{color:var(--mut);font-size:13px}
+
+/* Topbar */
+.top{position:sticky;top:0;z-index:40;background:rgba(11,15,26,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;cursor:pointer;user-select:none}
+.logo .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px}
+.app{max-width:560px;margin:0 auto;padding:16px;padding-bottom:90px}
+
+/* Auth */
+.authwrap{min-height:100vh;display:flex;flex-direction:column;justify-content:center;max-width:430px;margin:0 auto;padding:24px}
+.pwbox{position:relative}
+.pwbox .eye{position:absolute;right:12px;top:50%;transform:translateY(-30%);cursor:pointer;color:var(--mut);font-size:18px}
+
+/* Balance card */
+.balcard{background:linear-gradient(135deg,#6d4bff,#2bb0ff);border-radius:22px;padding:22px;color:#fff;position:relative;overflow:hidden}
+.balcard::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;background:rgba(255,255,255,.12);border-radius:50%}
+.balcard h2{font-size:34px;margin:6px 0}
+
+/* services grid */
+.svgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}
+.svc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 6px;text-align:center;cursor:pointer;transition:.2s}
+.svc:active{transform:scale(.95)}
+.svc .ic{font-size:24px}.svc .nm{font-size:11px;margin-top:6px;color:var(--mut)}
+
+/* bottom nav */
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(20,26,43,.95);backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;max-width:560px;margin:0 auto}
+.bnav div{flex:1;text-align:center;padding:11px 0;cursor:pointer;color:var(--mut);font-size:11px}
+.bnav div.active{color:var(--brand2)}
+.bnav .ic{font-size:20px;display:block}
+
+/* tx list */
+.tx{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tx .ti{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--card2);font-size:18px}
+.tx .amt{font-weight:700}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+.b-ok{background:rgba(34,201,138,.15);color:var(--ok)}
+.b-pend{background:rgba(255,176,32,.15);color:var(--warn)}
+.b-fail{background:rgba(255,93,108,.15);color:var(--err)}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
+.modal .inner{background:var(--card);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:22px;max-height:92vh;overflow-y:auto;animation:up .25s}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.mhead .x{font-size:22px;cursor:pointer;color:var(--mut)}
+
+/* toast */
+#toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;width:90%;max-width:400px}
+.toast{padding:14px 16px;border-radius:14px;color:#fff;font-size:14px;font-weight:500;animation:fade .2s;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.t-ok{background:#1c8a5e}.t-err{background:#c93b48}.t-info{background:#3a4566}
+
+/* loading */
+.spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:rot .7s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+.overlay{position:fixed;inset:0;z-index:90;background:rgba(11,15,26,.7);display:grid;place-items:center}
+
+/* admin */
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:8px}
+.tabs button{white-space:nowrap;padding:9px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;cursor:pointer;width:auto}
+.tabs button.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border:none}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.stat .v{font-size:22px;font-weight:800;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600}
+.chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);margin:2px}
+
+/* footer pages */
+.legal{line-height:1.7;font-size:14px;color:#c2c9d8}
+.legal h3{margin:18px 0 8px;color:#fff}
+.faq{border-bottom:1px solid var(--line);padding:14px 0}
+.faq .q{font-weight:600;cursor:pointer;display:flex;justify-content:between}
+
+/* whatsapp float */
+.wa{position:fixed;bottom:74px;right:16px;z-index:50;width:54px;height:54px;border-radius:50%;background:#25D366;display:grid;place-items:center;font-size:26px;box-shadow:0 6px 24px rgba(37,211,102,.5);cursor:pointer}
+.recharge-card{border:2px dashed #333;border-radius:8px;padding:10px;background:#fff;color:#000;font-size:11px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+<div id="overlay" class="overlay hide"><div class="spin" style="width:40px;height:40px;border-width:4px"></div></div>
+
+<!-- ============ AUTH SCREENS ============ -->
+<div id="authScreen">
+  <div class="authwrap">
+    <div class="center" style="margin-bottom:26px">
+      <div class="logo" style="justify-content:center;font-size:26px" id="authLogo">
+        <span class="mark grad">⚡</span><span class="gradtxt">SwiftVTU</span>
+      </div>
+      <p class="muted" style="margin-top:8px">Buy data, airtime & pay bills instantly</p>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginForm" class="card">
+      <h3 style="margin-bottom:16px">Welcome back 👋</h3>
+      <div class="field"><label>Email or Phone</label><input id="lgEmail" placeholder="you@email.com"></div>
+      <div class="field"><label>Password</label>
+        <div class="pwbox"><input id="lgPass" type="password" placeholder="••••••••"><span class="eye" onclick="togglePw('lgPass',this)">👁️</span></div>
+      </div>
+      <button class="btn" onclick="doLogin()">Login</button>
+      <p class="center muted" style="margin-top:14px"><a onclick="showAuth('forgot')">Forgot password?</a></p>
+      <p class="center muted" style="margin-top:8px">No account? <a onclick="showAuth('register')">Create one</a></p>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="registerForm" class="card hide">
+      <h3 style="margin-bottom:16px">Create account 🚀</h3>
+      <div class="field"><label>Full Name</label><input id="rgName" placeholder="John Doe"></div>
+      <div class="field"><label>Email</label><input id="rgEmail" type="email" placeholder="you@email.com"></div>
+      <div class="field"><label>Phone</label><input id="rgPhone" type="tel" placeholder="08012345678"></div>
+      <div class="field"><label>Password</label>
+        <div class="pwbox"><input id="rgPass" type="password" placeholder="At least 6 characters"><span class="eye" onclick="togglePw('rgPass',this)">👁️</span></div>
+      </div>
+      <div class="field"><label>Referral Code (optional)</label><input id="rgRef" placeholder="Code from a friend"></div>
+      <button class="btn" onclick="doRegister()">Sign Up</button>
+      <p class="center muted" style="margin-top:14px">Have an account? <a onclick="showAuth('login')">Login</a></p>
+    </div>
+
+    <!-- FORGOT -->
+    <div id="forgotForm" class="card hide">
+      <h3 style="margin-bottom:8px">Reset password 🔑</h3>
+      <p class="muted" style="margin-bottom:16px">Enter your email and new password.</p>
+      <div class="field"><label>Email</label><input id="fgEmail" type="email" placeholder="you@email.com"></div>
+      <div class="field"><label>New Password</label>
+        <div class="pwbox"><input id="fgPass" type="password" placeholder="New password"><span class="eye" onclick="togglePw('fgPass',this)">👁️</span></div>
+      </div>
+      <button class="btn" onclick="doForgot()">Reset Password</button>
+      <p class="center muted" style="margin-top:14px"><a onclick="showAuth('login')">Back to login</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="appScreen" class="hide">
+  <div class="top">
+    <div class="logo" id="brandClick"><span class="mark grad">⚡</span><span class="gradtxt">SwiftVTU</span></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="muted" id="topName"></span>
+      <span style="cursor:pointer;font-size:20px" onclick="logout()">⏻</span>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- HOME -->
+    <div id="pg-home">
+      <div class="balcard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="opacity:.9;font-size:13px">Wallet Balance</span>
+          <span style="font-size:12px;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:20px" id="userBadge">User</span>
+        </div>
+        <h2 id="balDisplay">₦0.00</h2>
+        <button class="btn" style="background:rgba(255,255,255,.22);backdrop-filter:blur(6px);margin-top:6px" onclick="openModal('fund')">＋ Fund Wallet</button>
+      </div>
+
+      <div class="svgrid">
+        <div class="svc" onclick="openModal('data')"><div class="ic">📶</div><div class="nm">Data</div></div>
+        <div class="svc" onclick="openModal('airtime')"><div class="ic">📱</div><div class="nm">Airtime</div></div>
+        <div class="svc" onclick="openModal('cable')"><div class="ic">📺</div><div class="nm">Cable TV</div></div>
+        <div class="svc" onclick="openModal('electric')"><div class="ic">💡</div><div class="nm">Electricity</div></div>
+        <div class="svc" onclick="openModal('print')"><div class="ic">🎟️</div><div class="nm">Print Card</div></div>
+        <div class="svc" onclick="openModal('referral')"><div class="ic">🎁</div><div class="nm">Referral</div></div>
+        <div class="svc" onclick="goTab('history')"><div class="ic">🧾</div><div class="nm">History</div></div>
+        <div class="svc" onclick="openModal('support')"><div class="ic">💬</div><div class="nm">Support</div></div>
+      </div>
+
+      <h4 style="margin:22px 0 4px">Recent Activity</h4>
+      <div class="card"><div id="recentTx"><p class="muted center" style="padding:20px">No transactions yet</p></div></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="pg-history" class="hide">
+      <h3 style="margin-bottom:14px">Transaction History</h3>
+      <div class="card"><div id="fullTx"></div></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div id="pg-profile" class="hide">
+      <h3 style="margin-bottom:14px">Profile</h3>
+      <div class="card">
+        <div class="field"><label>Name</label><input id="pfName" disabled></div>
+        <div class="field"><label>Email</label><input id="pfEmail" disabled></div>
+        <div class="field"><label>Phone</label><input id="pfPhone"></div>
+        <div class="field"><label>Your Referral Code</label><input id="pfRef" disabled></div>
+        <button class="btn" onclick="updateProfile()">Update Phone</button>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h4 style="margin-bottom:10px">Legal & Info</h4>
+        <p style="padding:6px 0"><a onclick="openModal('about')">ℹ️ About Us</a></p>
+        <p style="padding:6px 0"><a onclick="openModal('terms')">📄 Terms of Service</a></p>
+        <p style="padding:6px 0"><a onclick="openModal('privacy')">🔒 Privacy Policy</a></p>
+        <p style="padding:6px 0"><a onclick="openModal('faq')">❓ FAQ</a></p>
+        <p style="padding:6px 0"><a onclick="logout()">⏻ Logout</a></p>
+      </div>
+    </div>
+
+    <!-- ADMIN COMMAND CENTRE -->
+    <div id="pg-admin" class="hide">
+      <h3 class="gradtxt" style="margin-bottom:14px">⚙️ Command Centre</h3>
+      <div class="tabs" id="adminTabs">
+        <button class="active" onclick="adminTab('dash',this)">Dashboard</button>
+        <button onclick="adminTab('users',this)">Users</button>
+        <button onclick="adminTab('prices',this)">Prices</button>
+        <button onclick="adminTab('funding',this)">Funding</button>
+        <button onclick="adminTab('settings',this)">Settings</button>
+      </div>
+      <div id="atab-dash">
+        <div class="row" style="margin-bottom:12px">
+          <div class="stat"><div class="muted">Total Users</div><div class="v" id="stUsers">0</div></div>
+          <div class="stat"><div class="muted">Wallet Total</div><div class="v" id="stWallet">₦0</div></div>
+        </div>
+        <div class="row" style="margin-bottom:12px">
+          <div class="stat"><div class="muted">Total Sales</div><div class="v" id="stSales">₦0</div></div>
+          <div class="stat"><div class="muted">Transactions</div><div class="v" id="stTxn">0</div></div>
+        </div>
+        <div class="card"><canvas id="salesChart" height="160"></canvas></div>
+      </div>
+      <div id="atab-users" class="hide">
+        <input id="userSearch" placeholder="🔍 Search name/email/phone" oninput="renderAdminUsers()" style="margin-bottom:12px">
+        <div class="card" style="overflow-x:auto"><div id="adminUsersTbl"></div></div>
+      </div>
+      <div id="atab-prices" class="hide">
+        <button class="btn ok" onclick="loadAllPlansFromAPI()" style="margin-bottom:10px">🔄 Auto-Load All Plans via ClubKonnect API</button>
+        <p class="muted center" style="margin-bottom:12px">Or add/edit manually below</p>
+        <div class="tabs">
+          <button class="active" onclick="priceCat('data',this)">Data</button>
+          <button onclick="priceCat('airtime',this)">Airtime</button>
+          <button onclick="priceCat('cable',this)">Cable</button>
+          <button onclick="priceCat('electric',this)">Electricity</button>
+        </div>
+        <div class="card" style="overflow-x:auto"><div id="adminPriceTbl"></div></div>
+        <button class="btn sec" onclick="openModal('addprice')" style="margin-top:12px">＋ Add Item Manually</button>
+      </div>
+      <div id="atab-funding" class="hide">
+        <div class="card"><div id="adminFundTbl"></div></div>
+      </div>
+      <div id="atab-settings" class="hide">
+        <div class="card">
+          <div class="field"><label>ClubKonnect UserID</label><input id="setUserID"></div>
+          <div class="field"><label>ClubKonnect API Key</label><input id="setApiKey"></div>
+          <div class="field"><label>Paystack Public Key</label><input id="setPaystack"></div>
+          <div class="field"><label>WhatsApp Number (with 234)</label><input id="setWhatsapp"></div>
+          <div class="field"><label>Referral Bonus (₦ per signup)</label><input id="setReferral" type="number"></div>
+          <div class="field"><label>Business / Site Name</label><input id="setSiteName"></div>
+          <button class="btn" onclick="saveSettings()">💾 Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wa" id="waFloat" onclick="openWhatsApp()">💬</div>
+
+  <div class="bnav" id="bnav">
+    <div class="active" data-tab="home" onclick="goTab('home')"><span class="ic">🏠</span>Home</div>
+    <div data-tab="history" onclick="goTab('history')"><span class="ic">🧾</span>History</div>
+    <div data-tab="profile" onclick="goTab('profile')"><span class="ic">👤</span>Profile</div>
+  </div>
+</div>
+
+<!-- MODAL HOST -->
+<div id="modalHost"></div>
+
+<script>
+/* ============================================================
+   CONFIG — paste your deployed Apps Script Web App URL below
+   ============================================================ */
+const API = "https://script.google.com/macros/s/AKfycbwRpcP4fmm2oqT2RVbuA1lfWoevqK9t-1aofxyUCUWrcm0evTuv4hxlgmICgN3gMRGqag/exec";
+
+/* defaults (admin can override in Settings). 1234567890 = admin pass */
+let CFG = {
+  userID:"CK10152152", apiKey:"", paystackPk:"pk_test_xxxx",
+  whatsapp:"2348000000000", referral:50, siteName:"SwiftVTU"
+};
+let USER=null, PLANS={data:[],airtime:[],cable:[],electric:[]}, brandClicks=0, curPriceCat="data", salesChartObj=null;
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+const naira=n=>"₦"+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+function toast(msg,type='info'){const t=document.createElement('div');t.className='toast t-'+type;t.textContent=msg;$('toast').appendChild(t);setTimeout(()=>t.remove(),3500);}
+function load(s){$('overlay').classList.toggle('hide',!s);}
+function togglePw(id,el){const i=$(id);i.type=i.type==='password'?'text':'password';el.textContent=i.type==='password'?'👁️':'🙈';}
+
+async function call(action,data={}){
+  load(true);
+  try{
+    const res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data})});
+    const j=await res.json(); load(false); return j;
+  }catch(e){load(false);toast('Network error. Try again.','err');return{ok:false,error:'network'};}
+}
+
+/* ---------- AUTH ---------- */
+function showAuth(v){['login','register','forgot'].forEach(f=>$(f+'Form').classList.toggle('hide',f!==v));}
+$('authLogo').onclick=()=>showAuth('login');
+
+async function doRegister(){
+  const name=$('rgName').value.trim(),email=$('rgEmail').value.trim().toLowerCase(),phone=$('rgPhone').value.trim(),pass=$('rgPass').value,ref=$('rgRef').value.trim();
+  if(!name||!email||!phone||pass.length<6){toast('Fill all fields, password 6+ chars','err');return;}
+  const r=await call('register',{name,email,phone,pass,ref});
+  if(r.ok){toast('Account created! Welcome 🎉','ok');startSession(r.user);}
+  else toast(r.error||'Registration failed','err');
+}
+async function doLogin(){
+  const email=$('lgEmail').value.trim().toLowerCase(),pass=$('lgPass').value;
+  if(!email||!pass){toast('Enter email & password','err');return;}
+  const r=await call('login',{email,pass});
+  if(r.ok){toast('Logged in ✅','ok');startSession(r.user);}
+  else toast(r.error||'Invalid credentials','err');
+}
+async function doForgot(){
+  const email=$('fgEmail').value.trim().toLowerCase(),pass=$('fgPass').value;
+  if(!email||pass.length<6){toast('Enter email & new password (6+)','err');return;}
+  const r=await call('forgot',{email,pass});
+  if(r.ok){toast('Password reset! Login now ✅','ok');showAuth('login');}
+  else toast(r.error||'Email not found','err');
+}
+function startSession(u){
+  USER=u; localStorage.setItem('svtu_session',JSON.stringify({email:u.email,token:u.token}));
+  $('authScreen').classList.add('hide');$('appScreen').classList.remove('hide');
+  bootApp();
+}
+function logout(){localStorage.removeItem('svtu_session');location.reload();}
+
+/* ---------- BOOT ---------- */
+async function bootApp(){
+  const cfg=await call('getConfig');
+  if(cfg.ok)CFG={...CFG,...cfg.config};
+  $('topName').textContent=USER.name.split(' ')[0];
+  $('userBadge').textContent=USER.role==='admin'?'Owner':'User';
+  refreshUser();
+  loadPlans();
+}
+async function refreshUser(){
+  const r=await call('me',{email:USER.email,token:USER.token});
+  if(r.ok){USER={...USER,...r.user};
+    $('balDisplay').textContent=naira(USER.balance);
+    renderTx(r.tx||[]);
+  }
+}
+async function loadPlans(){
+  const r=await call('getPlans');
+  if(r.ok)PLANS=r.plans;
+}
+
+/* ---------- TX RENDER ---------- */
+function txIcon(t){return{data:'📶',airtime:'📱',cable:'📺',electric:'💡',fund:'💰',print:'🎟️',referral:'🎁',refund:'↩️'}[t]||'•';}
+function badge(s){const m={success:['b-ok','Success'],pending:['b-pend','Pending'],failed:['b-fail','Failed']};const x=m[s]||['b-pend',s];return`<span class="badge ${x[0]}">${x[1]}</span>`;}
+function txHTML(t){return`<div class="tx"><div class="ti">${txIcon(t.type)}</div><div style="flex:1"><div style="font-size:14px">${t.title}</div><div class="muted">${new Date(t.date).toLocaleString()}</div></div><div style="text-align:right"><div class="amt" style="color:${t.dir==='credit'?'var(--ok)':'#fff'}">${t.dir==='credit'?'+':'-'}${naira(t.amount)}</div>${badge(t.status)}</div></div>`;}
+function renderTx(tx){
+  USER.txCache=tx;
+  $('recentTx').innerHTML=tx.length?tx.slice(0,5).map(txHTML).join(''):'<p class="muted center" style="padding:20px">No transactions yet</p>';
+  $('fullTx').innerHTML=tx.length?tx.map(t=>txHTML(t)+`<div style="text-align:right;margin:-4px 0 6px"><a class="muted" style="font-size:12px" onclick='genReceipt(${JSON.stringify(t).replace(/'/g,"&#39;")})'>📄 Receipt</a></div>`).join(''):'<p class="muted center" style="padding:20px">No transactions yet</p>';
+}
+
+/* ---------- NAV ---------- */
+function goTab(tab){
+  ['home','history','profile','admin'].forEach(p=>$('pg-'+p).classList.add('hide'));
+  $('pg-'+tab).classList.remove('hide');
+  document.querySelectorAll('#bnav div').forEach(d=>d.classList.toggle('active',d.dataset.tab===tab));
+  if(tab==='profile'){$('pfName').value=USER.name;$('pfEmail').value=USER.email;$('pfPhone').value=USER.phone;$('pfRef').value=USER.refcode;}
+  if(tab==='history')refreshUser();
+}
+
+/* ---------- SECRET ADMIN (click brand 10x) ---------- */
+$('brandClick').onclick=()=>{
+  brandClicks++;
+  if(brandClicks>=10){brandClicks=0;promptAdmin();}
+  setTimeout(()=>{brandClicks=0;},3000);
+};
+function promptAdmin(){
+  openCustomModal('🔐 Command Centre',`
+    <div class="field"><label>Enter Access Password</label>
+    <div class="pwbox"><input id="admPass" type="password" placeholder="••••••••"><span class="eye" onclick="togglePw('admPass',this)">👁️</span></div></div>
+    <button class="btn" onclick="checkAdmin()">Unlock</button>`);
+}
+async function checkAdmin(){
+  const p=$('admPass').value;
+  const r=await call('adminAuth',{pass:p,email:USER.email});
+  if(r.ok){closeModal();toast('Access granted 🔓','ok');openAdmin();}
+  else toast('Wrong password','err');
+}
+function openAdmin(){
+  ['home','history','profile'].forEach(p=>$('pg-'+p).classList.add('hide'));
+  $('pg-admin').classList.remove('hide');
+  document.querySelectorAll('#bnav div').forEach(d=>d.classList.remove('active'));
+  loadAdminData();
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+function closeModal(){$('modalHost').innerHTML='';}
+function openCustomModal(title,body){
+  $('modalHost').innerHTML=`<div class="modal" onclick="if(event.target===this)closeModal()"><div class="inner"><div class="mhead"><h3>${title}</h3><span class="x" onclick="closeModal()">✕</span></div>${body}</div></div>`;
+}
+
+function openModal(type){
+  if(type==='fund')return modalFund();
+  if(type==='airtime')return modalAirtime();
+  if(type==='data')return modalData();
+  if(type==='cable')return modalCable();
+  if(type==='electric')return modalElectric();
+  if(type==='print')return modalPrint();
+  if(type==='referral')return modalReferral();
+  if(type==='support')return openWhatsApp();
+  if(type==='about')return modalLegal('About Us',ABOUT);
+  if(type==='terms')return modalLegal('Terms of Service',TERMS);
+  if(type==='privacy')return modalLegal('Privacy Policy',PRIVACY);
+  if(type==='faq')return modalFAQ();
+  if(type==='addprice')return modalAddPrice();
+}
+
+/* FUND WALLET (Paystack) */
+function modalFund(){
+  openCustomModal('💰 Fund Wallet',`
+    <div class="field"><label>Amount (₦)</label><input id="fundAmt" type="number" placeholder="e.g. 1000"></div>
+    <button class="btn" onclick="payNow()">Pay with Paystack</button>
+    <p class="muted center" style="margin-top:14px">Wallet credits instantly after payment.<br>Issue? <a onclick="closeModal();openWhatsApp()">Contact support</a></p>`);
+}
+function payNow(){
+  const amt=parseInt($('fundAmt').value);
+  if(!amt||amt<100){toast('Minimum ₦100','err');return;}
+  const ref='SVTU_'+USER.email.split('@')[0]+'_'+Date.now();
+  const h=PaystackPop.setup({
+    key:CFG.paystackPk,email:USER.email,amount:amt*100,ref,
+    metadata:{userEmail:USER.email,name:USER.name},
+    callback:function(resp){verifyFund(resp.reference,amt);},
+    onClose:function(){toast('Payment window closed','info');}
+  });
+  h.openIframe();
+}
+async function verifyFund(reference,amount){
+  closeModal();
+  const r=await call('fundVerify',{email:USER.email,token:USER.token,reference,amount});
+  if(r.ok){toast('Wallet funded '+naira(amount)+' ✅','ok');refreshUser();}
+  else toast(r.error||'Verification pending — contact support','err');
+}
+
+/* AIRTIME */
+function modalAirtime(){
+  const nets=PLANS.airtime.length?PLANS.airtime:[{id:'01',name:'MTN'},{id:'02',name:'Glo'},{id:'03',name:'9mobile'},{id:'04',name:'Airtel'}];
+  openCustomModal('📱 Buy Airtime',`
+    <div class="field"><label>Network</label><select id="aNet">${nets.map(n=>`<option value="${n.id}" data-disc="${n.discount||0}">${n.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Phone Number</label><input id="aPhone" type="tel" placeholder="08012345678" value="${USER.phone||''}"></div>
+    <div class="field"><label>Amount</label><input id="aAmt" type="number" placeholder="e.g. 500"></div>
+    <button class="btn" onclick="buyAirtime()">Buy Now</button>`);
+}
+async function buyAirtime(){
+  const sel=$('aNet'),net=sel.value,netName=sel.options[sel.selectedIndex].text,phone=$('aPhone').value.trim(),amt=parseInt($('aAmt').value);
+  if(!phone||phone.length<11||!amt||amt<50){toast('Enter valid phone & amount (50+)','err');return;}
+  closeModal();
+  const r=await call('buyAirtime',{email:USER.email,token:USER.token,network:net,netName,phone,amount:amt});
+  handleBuy(r);
+}
+
+/* DATA */
+function modalData(){
+  const nets=[...new Set(PLANS.data.map(p=>p.netName))];
+  openCustomModal('📶 Buy Data',`
+    <div class="field"><label>Network</label><select id="dNet" onchange="fillDataPlans()">
+      ${nets.length?nets.map(n=>`<option>${n}</option>`).join(''):'<option>Load plans in admin first</option>'}</select></div>
+    <div class="field"><label>Plan</label><select id="dPlan"></select></div>
+    <div class="field"><label>Phone Number</label><input id="dPhone" type="tel" placeholder="08012345678" value="${USER.phone||''}"></div>
+    <button class="btn" onclick="buyData()">Buy Now</button>`);
+  fillDataPlans();
+}
+function fillDataPlans(){
+  const n=$('dNet').value;
+  const list=PLANS.data.filter(p=>p.netName===n);
+  $('dPlan').innerHTML=list.length?list.map(p=>`<option value="${p.id}" data-net="${p.networkId}" data-price="${p.price}">${p.name} — ${naira(p.price)}</option>`).join(''):'<option>No plans</option>';
+}
+async function buyData(){
+  const sel=$('dPlan'),opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){toast('Select a plan','err');return;}
+  const phone=$('dPhone').value.trim();
+  if(!phone||phone.length<11){toast('Enter valid phone','err');return;}
+  closeModal();
+  const r=await call('buyData',{email:USER.email,token:USER.token,network:opt.dataset.net,plan:opt.value,planName:opt.text,phone,price:opt.dataset.price});
+  handleBuy(r);
+}
+
+/* CABLE */
+function modalCable(){
+  const types=[...new Set(PLANS.cable.map(p=>p.netName))];
+  openCustomModal('📺 Cable TV',`
+    <div class="field"><label>Provider</label><select id="cType" onchange="fillCable()">${types.length?types.map(t=>`<option>${t}</option>`).join(''):'<option>Load in admin first</option>'}</select></div>
+    <div class="field"><label>Package</label><select id="cPkg"></select></div>
+    <div class="field"><label>Smartcard / IUC Number</label><input id="cCard" placeholder="Enter smartcard no"></div>
+    <div class="field"><label>Phone</label><input id="cPhone" type="tel" value="${USER.phone||''}"></div>
+    <button class="btn" onclick="buyCable()">Subscribe</button>`);
+  fillCable();
+}
+function fillCable(){
+  const t=$('cType').value,list=PLANS.cable.filter(p=>p.netName===t);
+  $('cPkg').innerHTML=list.length?list.map(p=>`<option value="${p.id}" data-price="${p.price}" data-type="${p.networkId}">${p.name} — ${naira(p.price)}</option>`).join(''):'<option>No packages</option>';
+}
+async function buyCable(){
+  const sel=$('cPkg'),opt=sel.options[sel.selectedIndex],card=$('cCard').value.trim(),phone=$('cPhone').value.trim();
+  if(!opt||!opt.value||!card){toast('Fill all fields','err');return;}
+  closeModal();
+  const r=await call('buyCable',{email:USER.email,token:USER.token,cableType:opt.dataset.type,pkg:opt.value,pkgName:opt.text,card,phone,price:opt.dataset.price});
+  handleBuy(r);
+}
+
+/* ELECTRIC */
+function modalElectric(){
+  const discos=PLANS.electric.length?PLANS.electric:[];
+  openCustomModal('💡 Electricity',`
+    <div class="field"><label>Disco</label><select id="eDisco">${discos.length?discos.map(d=>`<option value="${d.id}">${d.name}</option>`).join(''):'<option>Load in admin first</option>'}</select></div>
+    <div class="field"><label>Meter Type</label><select id="eType"><option value="01">Prepaid</option><option value="02">Postpaid</option></select></div>
+    <div class="field"><label>Meter Number</label><input id="eMeter" placeholder="Meter number"></div>
+    <div class="field"><label>Amount</label><input id="eAmt" type="number" placeholder="e.g. 1000"></div>
+    <div class="field"><label>Phone</label><input id="ePhone" type="tel" value="${USER.phone||''}"></div>
+    <button class="btn" onclick="buyElectric()">Pay Bill</button>`);
+}
+async function buyElectric(){
+  const disco=$('eDisco').value,type=$('eType').value,meter=$('eMeter').value.trim(),amt=parseInt($('eAmt').value),phone=$('ePhone').value.trim();
+  if(!meter||!amt||amt<500){toast('Enter meter & amount (500+)','err');return;}
+  closeModal();
+  const r=await call('buyElectric',{email:USER.email,token:USER.token,disco,meterType:type,meter,amount:amt,phone});
+  handleBuy(r);
+}
+
+function handleBuy(r){
+  if(r.ok){toast('Successful ✅ '+(r.token?('Token: '+r.token):''),'ok');refreshUser();}
+  else if(r.refunded){toast('Failed — wallet refunded ↩️','err');refreshUser();}
+  else toast(r.error||'Transaction failed','err');
+}
+
+/* RECHARGE CARD PRINTING (PDF) */
+function modalPrint(){
+  openCustomModal('🎟️ Print Recharge Cards',`
+    <div class="field"><label>Network</label><select id="prNet"><option value="01">MTN</option><option value="02">Glo</option><option value="03">9mobile</option><option value="04">Airtel</option></select></div>
+    <div class="field"><label>Denomination (₦)</label><select id="prAmt"><option>100</option><option>200</option><option>500</option><option>1000</option></select></div>
+    <div class="field"><label>Quantity</label><input id="prQty" type="number" value="10" min="1" max="100"></div>
+    <div class="field"><label>Print Name on Card</label><input id="prBrand" placeholder="Your name/business (or leave blank for ${CFG.siteName})"></div>
+    <button class="btn" onclick="buyPrint()">Generate & Download PDF</button>
+    <p class="muted center" style="margin-top:12px">Cards arrange neatly for scissor-cutting. Recharge codes included.</p>`);
+}
+async function buyPrint(){
+  const net=$('prNet').value,netName=$('prNet').options[$('prNet').selectedIndex].text,amt=parseInt($('prAmt').value),qty=parseInt($('prQty').value),brand=$('prBrand').value.trim()||CFG.siteName;
+  if(qty<1||qty>100){toast('Quantity 1-100','err');return;}
+  closeModal();
+  const r=await call('printCards',{email:USER.email,token:USER.token,network:net,netName,amount:amt,qty});
+  if(r.ok&&r.cards){buildCardPDF(r.cards,netName,amt,brand);toast('PDF ready ✅','ok');refreshUser();}
+  else if(r.refunded){toast('Failed — refunded','err');refreshUser();}
+  else toast(r.error||'Failed','err');
+}
+function buildCardPDF(cards,netName,amt,brand){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF();
+  const cw=90,ch=48,mx=12,my=14,gapx=6,gapy=6;let x=mx,y=my,col=0;
+  cards.forEach((c,i)=>{
+    doc.setDrawColor(120);doc.setLineDashPattern([1.5,1.5],0);doc.roundedRect(x,y,cw,ch,2,2);
+    doc.setLineDashPattern([],0);
+    doc.setFontSize(11);doc.setFont(undefined,'bold');doc.text(brand,x+4,y+7);
+    doc.setFontSize(8);doc.setFont(undefined,'normal');doc.text(netName+' Recharge Card',x+4,y+13);
+    doc.setFontSize(13);doc.setFont(undefined,'bold');doc.text('N'+amt,x+cw-22,y+10);
+    doc.setFontSize(10);doc.setFont('courier','bold');doc.text('PIN: '+c.pin,x+4,y+24);
+    doc.setFontSize(8);doc.setFont(undefined,'normal');doc.text('Load: '+(c.loadcode||'*311*PIN#'),x+4,y+31);
+    doc.text('SN: '+c.serial,x+4,y+37);doc.text('Exp: '+(c.expiry||'N/A'),x+4,y+43);
+    col++;if(col>=2){col=0;x=mx;y+=ch+gapy;}else x+=cw+gapx;
+    if(y+ch>285&&i<cards.length-1){doc.addPage();x=mx;y=my;col=0;}
+  });
+  doc.save(brand.replace(/\s/g,'_')+'_'+netName+'_'+amt+'_cards.pdf');
+}
+
+/* RECEIPT */
+function genReceipt(t){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF();
+  doc.setFontSize(20);doc.setFont(undefined,'bold');doc.text(CFG.siteName,105,22,{align:'center'});
+  doc.setFontSize(11);doc.setFont(undefined,'normal');doc.text('Transaction Receipt',105,30,{align:'center'});
+  doc.line(15,36,195,36);let y=48;
+  const rows=[['Reference',t.ref||'-'],['Description',t.title],['Type',t.type],['Amount',naira(t.amount)],['Status',t.status],['Date',new Date(t.date).toLocaleString()],['Customer',USER.name]];
+  rows.forEach(r=>{doc.setFont(undefined,'bold');doc.text(r[0]+':',20,y);doc.setFont(undefined,'normal');doc.text(String(r[1]),80,y);y+=10;});
+  doc.setFontSize(9);doc.text('Thank you for using '+CFG.siteName,105,y+10,{align:'center'});
+  doc.save('receipt_'+(t.ref||Date.now())+'.pdf');
+}
+
+/* REFERRAL */
+function modalReferral(){
+  const link=location.origin+location.pathname+'?ref='+USER.refcode;
+  openCustomModal('🎁 Referral Program',`
+    <div class="balcard" style="border-radius:16px"><span style="opacity:.9;font-size:13px">Referral Earnings</span><h2 style="font-size:26px">${naira(USER.refEarnings||0)}</h2><p style="font-size:13px;opacity:.9">${USER.referrals||0} friends joined</p></div>
+    <div class="field" style="margin-top:16px"><label>Your Code</label><input value="${USER.refcode}" readonly></div>
+    <div class="field"><label>Share Link</label><input id="refLink" value="${link}" readonly></div>
+    <button class="btn" onclick="navigator.clipboard.writeText('${link}');toast('Link copied!','ok')">📋 Copy Link</button>
+    <p class="muted center" style="margin-top:12px">Earn ${naira(CFG.referral)} per friend who signs up!</p>`);
+}
+
+/* LEGAL & FAQ */
+function modalLegal(title,html){openCustomModal(title,`<div class="legal">${html}</div>`);}
+function modalFAQ(){openCustomModal('❓ FAQ',`<div>${FAQS.map(f=>`<div class="faq"><div class="q" onclick="this.nextElementSibling.classList.toggle('hide')">${f.q} <span style="margin-left:auto">▾</span></div><p class="muted hide" style="margin-top:8px">${f.a}</p></div>`).join('')}</div>`);}
+
+function updateProfile(){
+  const phone=$('pfPhone').value.trim();
+  call('updateProfile',{email:USER.email,token:USER.token,phone}).then(r=>{if(r.ok){USER.phone=phone;toast('Updated ✅','ok');}else toast('Failed','err');});
+}
+function openWhatsApp(){window.open(`https://wa.me/${CFG.whatsapp}?text=`+encodeURIComponent('Hi '+CFG.siteName+' support, I need help.'),'_blank');}
+
+/* ============================================================
+   ADMIN
+   ============================================================ */
+function adminTab(t,el){
+  ['dash','users','prices','funding','settings'].forEach(x=>$('atab-'+x).classList.add('hide'));
+  $('atab-'+t).classList.remove('hide');
+  document.querySelectorAll('#adminTabs button').forEach(b=>b.classList.remove('active'));el.classList.add('active');
+  if(t==='users')renderAdminUsers();if(t==='prices')renderPriceTable();if(t==='funding')renderFunding();if(t==='settings')fillSettings();if(t==='dash')renderDash();
+}
+let ADMIN={users:[],txns:[],funding:[]};
+async function loadAdminData(){
+  const r=await call('adminData',{email:USER.email,token:USER.token});
+  if(r.ok){ADMIN=r.data;renderDash();}
+}
+function renderDash(){
+  $('stUsers').textContent=ADMIN.users.length;
+  $('stWallet').textContent=naira(ADMIN.users.reduce((a,u)=>a+Number(u.balance||0),0));
+  const sales=ADMIN.txns.filter(t=>t.status==='success'&&t.dir==='debit').reduce((a,t)=>a+Number(t.amount),0);
+  $('stSales').textContent=naira(sales);
+  $('stTxn').textContent=ADMIN.txns.length;
+  const days={};ADMIN.txns.filter(t=>t.dir==='debit'&&t.status==='success').forEach(t=>{const d=new Date(t.date).toLocaleDateString();days[d]=(days[d]||0)+Number(t.amount);});
+  const labels=Object.keys(days).slice(-7),data=labels.map(l=>days[l]);
+  if(salesChartObj)salesChartObj.destroy();
+  salesChartObj=new Chart($('salesChart'),{type:'line',data:{labels,datasets:[{label:'Sales ₦',data,borderColor:'#6d4bff',backgroundColor:'rgba(109,75,255,.15)',fill:true,tension:.4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b93a7'}},y:{ticks:{color:'#8b93a7'}}}}});
+}
+function renderAdminUsers(){
+  const q=($('userSearch').value||'').toLowerCase();
+  const list=ADMIN.users.filter(u=>(u.name+u.email+u.phone).toLowerCase().includes(q));
+  $('adminUsersTbl').innerHTML=`<table><tr><th>Name</th><th>Balance</th><th>Status</th><th>Action</th></tr>${list.map(u=>`<tr><td>${u.name}<br><span class="muted">${u.email}</span></td><td>${naira(u.balance)}</td><td>${u.blocked?'<span class="badge b-fail">Blocked</span>':'<span class="badge b-ok">Active</span>'}</td><td><button class="btn sm sec" onclick='editUser("${u.email}")'>Manage</button></td></tr>`).join('')}</table>`;
+}
+function editUser(email){
+  const u=ADMIN.users.find(x=>x.email===email);
+  openCustomModal('👤 '+u.name,`
+    <p class="muted">${u.email} · ${u.phone}</p>
+    <p style="margin:10px 0">Balance: <b>${naira(u.balance)}</b></p>
+    <div class="field"><label>Amount</label><input id="muAmt" type="number" placeholder="Amount"></div>
+    <div class="row"><button class="btn ok" onclick="adjWallet('${email}','credit')">Credit</button><button class="btn danger" onclick="adjWallet('${email}','debit')">Debit</button></div>
+    <button class="btn sec" style="margin-top:10px" onclick="toggleBlock('${email}',${!u.blocked})">${u.blocked?'✅ Activate User':'🚫 Block User'}</button>`);
+}
+async function adjWallet(email,dir){
+  const amt=parseInt($('muAmt').value);if(!amt){toast('Enter amount','err');return;}
+  const r=await call('adminAdjust',{email:USER.email,token:USER.token,target:email,dir,amount:amt});
+  if(r.ok){closeModal();toast('Wallet updated ✅','ok');loadAdminData();}else toast('Failed','err');
+}
+async function toggleBlock(email,block){
+  const r=await call('adminBlock',{email:USER.email,token:USER.token,target:email,block});
+  if(r.ok){closeModal();toast(block?'User blocked':'User activated','ok');loadAdminData();}else toast('Failed','err');
+}
+function renderFunding(){
+  $('adminFundTbl').innerHTML=`<table><tr><th>User</th><th>Amount</th><th>Ref</th><th>Date</th></tr>${(ADMIN.funding||[]).map(f=>`<tr><td>${f.email}</td><td>${naira(f.amount)}</td><td class="muted">${f.ref}</td><td class="muted">${new Date(f.date).toLocaleDateString()}</td></tr>`).join('')||'<tr><td colspan=4 class="muted center">No funding yet</td></tr>'}</table>`;
+}
+
+/* PRICES */
+function priceCat(c,el){curPriceCat=c;document.querySelectorAll('#atab-prices .tabs button').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderPriceTable();}
+function renderPriceTable(){
+  const list=PLANS[curPriceCat]||[];
+  $('adminPriceTbl').innerHTML=`<table><tr><th>Name</th><th>Net</th><th>ID</th><th>Cost</th><th>Sell</th><th></th></tr>${list.map((p,i)=>`<tr><td>${p.name}</td><td>${p.netName||''}</td><td class="muted">${p.id}</td><td><input style="width:70px;padding:6px" value="${p.cost||p.price}" onchange="editPrice(${i},'cost',this.value)"></td><td><input style="width:70px;padding:6px" value="${p.price}" onchange="editPrice(${i},'price',this.value)"></td><td><button class="btn sm danger" onclick="delPrice(${i})">✕</button></td></tr>`).join('')||'<tr><td colspan=6 class="muted center">No items — load via API or add manually</td></tr>'}</table><button class="btn" style="margin-top:12px" onclick="savePrices()">💾 Save ${curPriceCat} prices</button>`;
+}
+function editPrice(i,f,v){PLANS[curPriceCat][i][f]=v;}
+function delPrice(i){PLANS[curPriceCat].splice(i,1);renderPriceTable();}
+async function savePrices(){
+  const r=await call('savePlans',{email:USER.email,token:USER.token,category:curPriceCat,items:PLANS[curPriceCat]});
+  if(r.ok)toast('Prices saved ✅','ok');else toast('Failed','err');
+}
+function modalAddPrice(){
+  openCustomModal('＋ Add '+curPriceCat,`
+    <div class="field"><label>Display Name</label><input id="apName" placeholder="e.g. MTN 1GB - 30 Days"></div>
+    <div class="field"><label>Network/Provider Name</label><input id="apNetName" placeholder="MTN"></div>
+    <div class="field"><label>Network ID (ClubKonnect)</label><input id="apNetId" placeholder="01"></div>
+    <div class="field"><label>Plan/Product ID</label><input id="apId" placeholder="ClubKonnect product code"></div>
+    <div class="row"><div class="field"><label>Cost ₦</label><input id="apCost" type="number"></div><div class="field"><label>Sell ₦</label><input id="apPrice" type="number"></div></div>
+    <button class="btn" onclick="addPriceRow()">Add</button>`);
+}
+function addPriceRow(){
+  PLANS[curPriceCat].push({name:$('apName').value,netName:$('apNetName').value,networkId:$('apNetId').value,id:$('apId').value,cost:$('apCost').value,price:$('apPrice').value});
+  closeModal();renderPriceTable();savePrices();
+}
+async function loadAllPlansFromAPI(){
+  toast('Loading from ClubKonnect...','info');
+  const r=await call('fetchClubkonnect',{email:USER.email,token:USER.token});
+  if(r.ok){PLANS=r.plans;toast('Plans loaded ✅ Set your selling prices','ok');renderPriceTable();}
+  else toast(r.error||'Failed to load. Add manually.','err');
+}
+
+/* SETTINGS */
+function fillSettings(){
+  $('setUserID').value=CFG.userID;$('setApiKey').value=CFG.apiKey;$('setPaystack').value=CFG.paystackPk;
+  $('setWhatsapp').value=CFG.whatsapp;$('setReferral').value=CFG.referral;$('setSiteName').value=CFG.siteName;
+}
+async function saveSettings(){
+  const cfg={userID:$('setUserID').value,apiKey:$('setApiKey').value,paystackPk:$('setPaystack').value,whatsapp:$('setWhatsapp').value,referral:Number($('setReferral').value),siteName:$('setSiteName').value};
+  const r=await call('saveConfig',{email:USER.email,token:USER.token,config:cfg});
+  if(r.ok){CFG={...CFG,...cfg};toast('Settings saved ✅','ok');}else toast('Failed','err');
+}
+
+/* ---------- legal content ---------- */
+const ABOUT=`<p>SwiftVTU is a leading Nigerian digital top-up platform. We make buying data bundles, airtime, paying electricity bills, cable TV subscriptions and printing recharge cards fast, affordable and reliable — 24/7. Powered by ClubKonnect's instant vending network.</p>`;
+const TERMS=`<h3>1. Acceptance</h3><p>By using SwiftVTU you agree to these terms.</p><h3>2. Wallet</h3><p>Funds added to your wallet are for purchasing services only and are non-refundable except where a transaction fails, in which case automatic refunds apply.</p><h3>3. Accurate Info</h3><p>You must provide correct phone/meter/smartcard numbers. We are not liable for delivery to wrong details supplied by you.</p><h3>4. Pricing</h3><p>Prices may change without prior notice.</p><h3>5. Misuse</h3><p>Fraudulent activity leads to account suspension.</p>`;
+const PRIVACY=`<h3>Data We Collect</h3><p>Name, email, phone and transaction records — used solely to operate your account and process transactions.</p><h3>Security</h3><p>Passwords are stored securely (hashed). We never share your data with third parties for marketing.</p><h3>Payments</h3><p>Payments are processed securely by Paystack; we do not store card details.</p>`;
+const FAQS=[
+  {q:'How fast is delivery?',a:'Most airtime and data deliver instantly. Network delays may take a few minutes.'},
+  {q:'What happens if a transaction fails?',a:'Your wallet is automatically refunded for any failed transaction.'},
+  {q:'How do I fund my wallet?',a:'Tap Fund Wallet, enter amount and pay securely via Paystack. Your balance updates instantly.'},
+  {q:'My payment succeeded but wallet not credited?',a:'Contact support via WhatsApp with your reference and we will credit you immediately.'},
+  {q:'Can I print recharge cards to resell?',a:'Yes! Use Print Card, choose quantity & denomination, add your business name and download a print-ready PDF.'},
+  {q:'How does referral work?',a:'Share your code. You earn a bonus for every friend who signs up.'}
+];
+
+/* ---------- session restore ---------- */
+window.addEventListener('load',async()=>{
+  const ref=new URLSearchParams(location.search).get('ref');
+  if(ref){$('rgRef').value=ref;showAuth('register');}
+  const s=localStorage.getItem('svtu_session');
+  if(s){const{email,token}=JSON.parse(s);const r=await call('me',{email,token});
+    if(r.ok){USER={...r.user,email,token};startSession(USER);}}
+});
+</script>
+</body>
+</html>
